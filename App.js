@@ -111,6 +111,9 @@ export default function App() {
           </TouchableOpacity>
         )}
       </View>
+      <TouchableOpacity onPress={test} style={styles.Sbutton}>
+        <Text style={styles.myText}>Restaurar</Text>
+      </TouchableOpacity>
       <StatusBar style="inverted" />
     </View>
   );
@@ -135,21 +138,34 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
+  myText: {
+    color: "#fff",
+    fontSize: 15,
+    textAlign: "center",
+  },
   myImage: {
-    height: 200,
-    width: 200,
+    height: "25%",
+    width: "60%",
   },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "60%",
-    marginTop: 10,
+    marginTop: 15,
   },
   button: {
     backgroundColor: "#2196F3",
     paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 50,
+  },
+  Sbutton: {
+    backgroundColor: "#32CD32",
+    paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
+    width: "60%",
+    marginTop: 15,
   },
   buttonText: {
     color: "#FFFFFF",
