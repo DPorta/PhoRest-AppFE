@@ -12,6 +12,6 @@
 
 ## Capturas
 
-![Captura 1: Home Principal](Captura 1.png)
+![Captura 1: Home Principal](Captura_1.png)
 
 Lima, 2023
