@@ -14,10 +14,13 @@ import * as Permissions from "expo-permissions";
 import * as Sharing from "expo-sharing";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as MediaLibrary from "expo-media-library";
+import * as FileSystem from "expo-file-system";
 import { Camera } from "expo-camera";
+import { Buffer } from "buffer";
 
 export default function App() {
   const [imageUri, setImageUri] = useState(null);
+  const [base64Img, setbase64Img] = useState(null);
   const [cameraRef, setCameraRef] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
 
@@ -43,16 +46,25 @@ export default function App() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
+      base64: true,
     });
     if (!result.canceled) {
+      //console.log(result.assets);
+      //console.log(Object.keys(result.assets[0]));
+      setbase64Img(result.assets[0].base64);
       setImageUri(result.assets[0].uri);
     }
   };
   //Tomar foto con camara de usuario
   const takePicture = async () => {
     if (cameraRef) {
-      const photo = await cameraRef.takePictureAsync();
-      console.log(photo);
+      const photo = await cameraRef.takePictureAsync({
+        allowsEditing: true,
+        base64: true,
+      });
+      //console.log(Object.keys(photo));
+      //console.log(photo.base64Img);
+      setbase64Img(photo.base64);
       setImageUri(photo.uri);
       setCameraActive(false);
       // Aquí puedes hacer lo que quieras con la foto
@@ -70,12 +82,16 @@ export default function App() {
   //Descargar la imagen
   const downloadImage = async () => {
     const asset = await MediaLibrary.createAssetAsync(imageUri);
-    await MediaLibrary.createAlbumAsync("PhoRest", asset, false);
-    console.log(asset);
-    ToastAndroid.show(
-      "La imagen se ha descargado con éxito.",
-      ToastAndroid.SHORT
-    );
+    try {
+      await MediaLibrary.createAlbumAsync("PhoRest", asset, false);
+      ToastAndroid.show(
+        "La imagen se ha descargado con éxito.",
+        ToastAndroid.SHORT
+      );
+      console.log(imageUri);
+    } catch (error) {
+      alert(error);
+    }
   };
   //Compartir la imagen
   const shareImage = async () => {
@@ -95,43 +111,48 @@ export default function App() {
     }
   };
   //TEST API POST TO SEND IMAGE
-  /*
-  import axios from 'axios';
-  const processImage = async () => {
-    try {
-      let formData = new FormData();
-      formData.append('image', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'image.jpg',
+  const restoreImage = async () => {
+    ToastAndroid.show("Enviando a restaurar...", ToastAndroid.SHORT);
+    const formData = new FormData();
+    formData.append("imageb64", base64Img);
+
+    fetch("https://flask-production-cfdf.up.railway.app/getbase64", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "multipart/form-data",
+      },
+      redirect: "follow",
+      body: formData,
+    })
+      .then((response) => response.text())
+      .then((responseJson) => {
+        //console.log(Object.keys(responseJson));
+        //setImageUri("data:image/png;base64," + responseJson.base64P);
+        //alert("Resultado del análisis: " + responseJson.imageResult);
+        console.log(responseJson);
+        //ToastAndroid.show("Listo!!!", ToastAndroid.SHORT);
+      })
+      .catch((error) => {
+        console.log("NOTTTT" + error);
+        alert("No se pudo enviar: " + error);
       });
-
-      let response = await axios.post(
-        'https://example.com/api/process-image',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
-
-      setProcessedImageUri(response.data.imageUri);
-    } catch (error) {
-      console.log(error);
-    }
   };
-
-  */
 
   return (
     <View style={styles.container}>
-      <Text style={styles.myTitle}>PhotoRestorer</Text>
-      <Text style={styles.mysubTitle}>
-        Restauración de fotos antiguas o dañadas
-      </Text>
+      {!cameraActive && (
+        <View>
+          <Text style={styles.myTitle}>PhotoRestorer</Text>
+          <Text style={styles.mysubTitle}>
+            Restauración de fotos antiguas o dañadas
+          </Text>
+        </View>
+      )}
 
-      {imageUri ? (
+      {cameraActive ? (
+        <View></View>
+      ) : imageUri ? (
         <Image source={{ uri: imageUri }} style={styles.myImage} />
       ) : (
         <Image
@@ -139,37 +160,39 @@ export default function App() {
           style={styles.myImage}
         />
       )}
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity onPress={pickImage} style={styles.button}>
-          <Feather name="image" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setCameraActive(true)}
-          style={styles.button}
-        >
-          <Feather name="camera" size={24} color="white" />
-        </TouchableOpacity>
-        {imageUri && (
-          <TouchableOpacity onPress={editImage} style={styles.button}>
-            <Feather name="edit" size={24} color="white" />
+      {!cameraActive && (
+        <View style={styles.container2}>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity onPress={pickImage} style={styles.button}>
+              <Feather name="image" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setCameraActive(true)}
+              style={styles.button}
+            >
+              <Feather name="camera" size={24} color="white" />
+            </TouchableOpacity>
+            {imageUri && (
+              <TouchableOpacity onPress={editImage} style={styles.button}>
+                <Feather name="edit" size={24} color="white" />
+              </TouchableOpacity>
+            )}
+            {imageUri && (
+              <TouchableOpacity onPress={downloadImage} style={styles.button}>
+                <Feather name="download" size={24} color="white" />
+              </TouchableOpacity>
+            )}
+            {imageUri && (
+              <TouchableOpacity onPress={shareImage} style={styles.button}>
+                <Feather name="share-2" size={24} color="white" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity onPress={restoreImage} style={styles.Sbutton}>
+            <Text style={styles.myText}>Restaurar</Text>
           </TouchableOpacity>
-        )}
-        {imageUri && (
-          <TouchableOpacity onPress={downloadImage} style={styles.button}>
-            <Feather name="download" size={24} color="white" />
-          </TouchableOpacity>
-        )}
-        {imageUri && (
-          <TouchableOpacity onPress={shareImage} style={styles.button}>
-            <Feather name="share-2" size={24} color="white" />
-          </TouchableOpacity>
-        )}
-      </View>
-      <TouchableOpacity onPress={test} style={styles.Sbutton}>
-        <Text style={styles.myText}>Restaurar</Text>
-      </TouchableOpacity>
-
+        </View>
+      )}
       {cameraActive && (
         <Camera
           style={styles.camera}
@@ -202,6 +225,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#303030",
     alignItems: "center",
     justifyContent: "center",
+  },
+  container2: {
+    alignItems: "center",
   },
   myTitle: {
     color: "#fff",
@@ -252,7 +278,6 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
     width: "100%",
-    height: "100%",
   },
   buttonCamContainer: {
     position: "absolute",
