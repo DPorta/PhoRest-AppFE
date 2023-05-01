@@ -7,6 +7,8 @@ import {
   Image,
   TouchableOpacity,
   ToastAndroid,
+  Alert,
+  Linking,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -20,6 +22,7 @@ import { Buffer } from "buffer";
 
 export default function App() {
   const [imageUri, setImageUri] = useState(null);
+  const [restaurada, setRestaurada] = useState(false);
   const [base64Img, setbase64Img] = useState(null);
   const [cameraRef, setCameraRef] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -53,6 +56,7 @@ export default function App() {
       //console.log(Object.keys(result.assets[0]));
       setbase64Img(result.assets[0].base64);
       setImageUri(result.assets[0].uri);
+      setRestaurada(false);
     }
   };
   //Tomar foto con camara de usuario
@@ -67,6 +71,7 @@ export default function App() {
       setbase64Img(photo.base64);
       setImageUri(photo.uri);
       setCameraActive(false);
+      setRestaurada(false);
       // Aquí puedes hacer lo que quieras con la foto
     }
   };
@@ -114,27 +119,36 @@ export default function App() {
   const restoreImage = async () => {
     ToastAndroid.show("Enviando a restaurar...", ToastAndroid.SHORT);
     const formData = new FormData();
-    formData.append("imageb64", base64Img);
+    formData.append("filename", {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "filename.jpg",
+    });
 
-    fetch("https://flask-production-cfdf.up.railway.app/getbase64", {
+    fetch("https://dporta.pythonanywhere.com/getfilename", {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "multipart/form-data",
-      },
       redirect: "follow",
       body: formData,
     })
-      .then((response) => response.text())
+      .then((response) => response.json())
       .then((responseJson) => {
-        //console.log(Object.keys(responseJson));
-        //setImageUri("data:image/png;base64," + responseJson.base64P);
-        //alert("Resultado del análisis: " + responseJson.imageResult);
-        console.log(responseJson);
+        setRestaurada(true);
+        setImageUri(responseJson.finalImage);
+        Alert.alert("Listo, el resultado es:", responseJson.imageResult, [
+          {
+            text: "Cancelar",
+            style: "cancel",
+          },
+          {
+            text: "Abrir Imagen",
+            onPress: () => Linking.openURL(responseJson.finalImage),
+          },
+        ]);
+        //alert("Tu imagen está en: " + responseJson.finalImage);
         //ToastAndroid.show("Listo!!!", ToastAndroid.SHORT);
       })
       .catch((error) => {
-        console.log("NOTTTT" + error);
+        console.log("NOTTTT: " + error);
         alert("No se pudo enviar: " + error);
       });
   };
@@ -149,7 +163,15 @@ export default function App() {
           </Text>
         </View>
       )}
-
+      {cameraActive ? (
+        <View></View>
+      ) : restaurada ? (
+        <View>
+          <Text style={styles.myRestoredTitle}>Imagen Restaurada :D</Text>
+        </View>
+      ) : (
+        <View></View>
+      )}
       {cameraActive ? (
         <View></View>
       ) : imageUri ? (
@@ -237,6 +259,12 @@ const styles = StyleSheet.create({
   },
   mysubTitle: {
     color: "#fff",
+    fontSize: 15,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  myRestoredTitle: {
+    color: "#4BB543",
     fontSize: 15,
     textAlign: "center",
     marginBottom: 10,
