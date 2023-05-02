@@ -9,6 +9,7 @@ import {
   ToastAndroid,
   Alert,
   Linking,
+  Share,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -50,6 +51,7 @@ export default function App() {
       allowsEditing: true,
       quality: 1,
       base64: true,
+      aspect: [1, 1],
     });
     if (!result.canceled) {
       //console.log(result.assets);
@@ -86,8 +88,8 @@ export default function App() {
   };
   //Descargar la imagen
   const downloadImage = async () => {
-    const asset = await MediaLibrary.createAssetAsync(imageUri);
     try {
+      const asset = await MediaLibrary.createAssetAsync(imageUri);
       await MediaLibrary.createAlbumAsync("PhoRest", asset, false);
       ToastAndroid.show(
         "La imagen se ha descargado con éxito.",
@@ -111,13 +113,23 @@ export default function App() {
   const test = async () => {
     try {
       console.log(imageUri);
+      console.log(url2img(imageUri));
     } catch (error) {
       console.log(error);
     }
   };
+  //Convert URL to image
+  const url2img = async (uri) => {
+    const fileUri = FileSystem.documentDirectory + "image.jpg";
+    await FileSystem.downloadAsync(uri, fileUri);
+    return fileUri;
+  };
   //TEST API POST TO SEND IMAGE
   const restoreImage = async () => {
     ToastAndroid.show("Enviando a restaurar...", ToastAndroid.SHORT);
+    setImageUri(
+      "https://mir-s3-cdn-cf.behance.net/project_modules/disp/04de2e31234507.564a1d23645bf.gif"
+    );
     const formData = new FormData();
     formData.append("filename", {
       uri: imageUri,
@@ -134,16 +146,23 @@ export default function App() {
       .then((responseJson) => {
         setRestaurada(true);
         setImageUri(responseJson.finalImage);
-        Alert.alert("Listo, el resultado es:", responseJson.imageResult, [
-          {
-            text: "Cancelar",
-            style: "cancel",
-          },
-          {
-            text: "Abrir Imagen",
-            onPress: () => Linking.openURL(responseJson.finalImage),
-          },
-        ]);
+
+        Alert.alert(
+          "Imagen restaurada",
+          "El análisis fue: " +
+            responseJson.imageResult +
+            ". Puedes abrir la imagen en internet para poder descargarla.",
+          [
+            {
+              text: "Cancelar",
+              style: "cancel",
+            },
+            {
+              text: "Abrir",
+              onPress: () => Linking.openURL(responseJson.finalImage),
+            },
+          ]
+        );
         //alert("Tu imagen está en: " + responseJson.finalImage);
         //ToastAndroid.show("Listo!!!", ToastAndroid.SHORT);
       })
@@ -160,6 +179,9 @@ export default function App() {
           <Text style={styles.myTitle}>PhotoRestorer</Text>
           <Text style={styles.mysubTitle}>
             Restauración de fotos antiguas o dañadas
+          </Text>
+          <Text style={styles.mysubTitle}>
+            Selecciona tu imagen de la galería o con tu cámara
           </Text>
         </View>
       )}
@@ -178,7 +200,7 @@ export default function App() {
         <Image source={{ uri: imageUri }} style={styles.myImage} />
       ) : (
         <Image
-          source={{ uri: "https://picsum.photos/200/200" }}
+          source={{ uri: "https://picsum.photos/400/400" }}
           style={styles.myImage}
         />
       )}
@@ -194,25 +216,26 @@ export default function App() {
             >
               <Feather name="camera" size={24} color="white" />
             </TouchableOpacity>
-            {imageUri && (
-              <TouchableOpacity onPress={editImage} style={styles.button}>
-                <Feather name="edit" size={24} color="white" />
-              </TouchableOpacity>
-            )}
-            {imageUri && (
-              <TouchableOpacity onPress={downloadImage} style={styles.button}>
-                <Feather name="download" size={24} color="white" />
-              </TouchableOpacity>
-            )}
-            {imageUri && (
-              <TouchableOpacity onPress={shareImage} style={styles.button}>
-                <Feather name="share-2" size={24} color="white" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity onPress={downloadImage} style={styles.button}>
+              <Feather name="download" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={shareImage} style={styles.button}>
+              <Feather name="share-2" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={restoreImage} style={styles.Sbutton}>
-            <Text style={styles.myText}>Restaurar</Text>
-          </TouchableOpacity>
+          {restaurada ? (
+            <View>
+              <Text style={styles.mysubTitle}>
+                Para volver a Restaurar elige o toma una foto :D
+              </Text>
+            </View>
+          ) : (
+            imageUri && (
+              <TouchableOpacity onPress={restoreImage} style={styles.Sbutton}>
+                <Text style={styles.myText}>Restaurar</Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
       )}
       {cameraActive && (
@@ -253,7 +276,7 @@ const styles = StyleSheet.create({
   },
   myTitle: {
     color: "#fff",
-    fontSize: 25,
+    fontSize: 30,
     textAlign: "center",
     fontWeight: "bold",
   },
@@ -265,7 +288,7 @@ const styles = StyleSheet.create({
   },
   myRestoredTitle: {
     color: "#4BB543",
-    fontSize: 15,
+    fontSize: 20,
     textAlign: "center",
     marginBottom: 10,
   },
@@ -275,14 +298,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   myImage: {
-    height: "25%",
-    width: "60%",
+    height: "40%",
+    width: "80%",
   },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    width: "60%",
+    width: "80%",
     marginTop: 15,
+    marginBottom: 15,
   },
   button: {
     backgroundColor: "#2196F3",
@@ -295,7 +319,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
-    width: "60%",
+    width: "80%",
     marginTop: 15,
   },
   buttonText: {
