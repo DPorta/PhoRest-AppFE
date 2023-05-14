@@ -9,24 +9,19 @@ import {
   ToastAndroid,
   Alert,
   Linking,
-  Share,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Permissions from "expo-permissions";
 import * as Sharing from "expo-sharing";
-import * as ImageManipulator from "expo-image-manipulator";
 import * as MediaLibrary from "expo-media-library";
 import * as FileSystem from "expo-file-system";
-import { Camera } from "expo-camera";
-import { Buffer } from "buffer";
 
 export default function App() {
   const [imageUri, setImageUri] = useState(null);
+  const [imageLabel, setImageLabel] = useState(null);
   const [restaurada, setRestaurada] = useState(false);
-  const [base64Img, setbase64Img] = useState(null);
-  const [cameraRef, setCameraRef] = useState(null);
-  const [cameraActive, setCameraActive] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   //Peticion de permisos
   useEffect(() => {
@@ -50,19 +45,19 @@ export default function App() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
-      base64: true,
       aspect: [1, 1],
     });
     if (!result.canceled) {
       //console.log(result.assets);
       //console.log(Object.keys(result.assets[0]));
-      setbase64Img(result.assets[0].base64);
       setImageUri(result.assets[0].uri);
       setRestaurada(false);
+      setDownloaded(false);
     }
   };
+
   //Tomar foto con camara de usuario
-  const takePicture = async () => {
+  /*const takePicture = async () => {
     if (cameraRef) {
       const photo = await cameraRef.takePictureAsync({
         allowsEditing: true,
@@ -74,31 +69,46 @@ export default function App() {
       setImageUri(photo.uri);
       setCameraActive(false);
       setRestaurada(false);
+      setDownloaded(false);
       // Aquí puedes hacer lo que quieras con la foto
     }
-  };
-  //Editar la imagen
-  const editImage = async () => {
-    const imgUri = imageUri;
-    const editedImage = await ImageManipulator.manipulateAsync(imgUri, [], {
-      format: "png",
+  };*/
+  const takePictureCam = async () => {
+    let pickerResult = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 1,
     });
-    console.log(editedImage);
-    setImageUri(editedImage.uri);
-  };
-  //Descargar la imagen
-  const downloadImage = async () => {
-    try {
-      const asset = await MediaLibrary.createAssetAsync(imageUri);
-      await MediaLibrary.createAlbumAsync("PhoRest", asset, false);
-      ToastAndroid.show(
-        "La imagen se ha descargado con éxito.",
-        ToastAndroid.SHORT
-      );
-      console.log(imageUri);
-    } catch (error) {
-      alert(error);
+
+    if (pickerResult.cancelled === true) {
+      return;
     }
+    setImageUri(pickerResult.assets[0].uri);
+    setRestaurada(false);
+    setDownloaded(false);
+  };
+  //Descargar imagen en PhoRest
+  async function saveImageToAlbum(uri) {
+    const asset = await MediaLibrary.createAssetAsync(uri);
+    await MediaLibrary.createAlbumAsync("PhoRest", asset, false);
+    ToastAndroid.show(
+      "La imagen se ha descargado con éxito.",
+      ToastAndroid.SHORT
+    );
+    setImageUri(uri);
+    setDownloaded(true);
+  }
+  //Descargar la imagen de URL
+  const downloadImage = async () => {
+    FileSystem.downloadAsync(
+      imageUri,
+      FileSystem.documentDirectory + "image.png"
+    )
+      .then(({ uri }) => {
+        saveImageToAlbum(uri);
+      })
+      .catch((error) => {
+        console.log("Error downloading image:", error);
+      });
   };
   //Compartir la imagen
   const shareImage = async () => {
@@ -118,17 +128,11 @@ export default function App() {
       console.log(error);
     }
   };
-  //Convert URL to image
-  const url2img = async (uri) => {
-    const fileUri = FileSystem.documentDirectory + "image.jpg";
-    await FileSystem.downloadAsync(uri, fileUri);
-    return fileUri;
-  };
-  //TEST API POST TO SEND IMAGE
+  //API POST TO SEND IMAGE
   const restoreImage = async () => {
     ToastAndroid.show("Enviando a restaurar...", ToastAndroid.SHORT);
     setImageUri(
-      "https://mir-s3-cdn-cf.behance.net/project_modules/disp/04de2e31234507.564a1d23645bf.gif"
+      "https://cdn.pixabay.com/animation/2022/10/11/03/16/03-16-39-160_512.gif"
     );
     const formData = new FormData();
     formData.append("filename", {
@@ -146,8 +150,8 @@ export default function App() {
       .then((responseJson) => {
         setRestaurada(true);
         setImageUri(responseJson.finalImage);
-
-        Alert.alert(
+        setImageLabel(responseJson.imageResult);
+        /*Alert.alert(
           "Imagen restaurada",
           "El análisis fue: " +
             responseJson.imageResult +
@@ -163,8 +167,8 @@ export default function App() {
             },
           ]
         );
-        //alert("Tu imagen está en: " + responseJson.finalImage);
-        //ToastAndroid.show("Listo!!!", ToastAndroid.SHORT);
+        //alert("Tu imagen está en: " + responseJson.finalImage);*/
+        ToastAndroid.show("Listo!!!", ToastAndroid.SHORT);
       })
       .catch((error) => {
         console.log("NOTTTT: " + error);
@@ -174,29 +178,26 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      {!cameraActive && (
-        <View>
-          <Text style={styles.myTitle}>PhotoRestorer</Text>
-          <Text style={styles.mysubTitle}>
-            Restauración de fotos antiguas o dañadas
-          </Text>
-          <Text style={styles.mysubTitle}>
-            Selecciona tu imagen de la galería o con tu cámara
-          </Text>
-        </View>
-      )}
-      {cameraActive ? (
-        <View></View>
-      ) : restaurada ? (
+      <View>
+        <Text style={styles.myTitle}>PhotoRestorer</Text>
+        <Text style={styles.mysubTitle}>
+          Restauración de fotos antiguas o dañadas
+        </Text>
+        <Text style={styles.mysubTitle}>
+          Selecciona tu imagen de la galería o con tu cámara
+        </Text>
+      </View>
+      {restaurada ? (
         <View>
           <Text style={styles.myRestoredTitle}>Imagen Restaurada :D</Text>
+          <Text style={styles.myRestoredTitle}>
+            Análisis de imagen subida: {imageLabel}
+          </Text>
         </View>
       ) : (
         <View></View>
       )}
-      {cameraActive ? (
-        <View></View>
-      ) : imageUri ? (
+      {imageUri ? (
         <Image source={{ uri: imageUri }} style={styles.myImage} />
       ) : (
         <Image
@@ -204,61 +205,40 @@ export default function App() {
           style={styles.myImage}
         />
       )}
-      {!cameraActive && (
-        <View style={styles.container2}>
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity onPress={pickImage} style={styles.button}>
-              <Feather name="image" size={24} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setCameraActive(true)}
-              style={styles.button}
-            >
-              <Feather name="camera" size={24} color="white" />
-            </TouchableOpacity>
+      <View style={styles.container2}>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity onPress={pickImage} style={styles.button}>
+            <Feather name="image" size={24} color="white" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={takePictureCam} style={styles.button}>
+            <Feather name="camera" size={24} color="white" />
+          </TouchableOpacity>
+          {restaurada && (
             <TouchableOpacity onPress={downloadImage} style={styles.button}>
               <Feather name="download" size={24} color="white" />
             </TouchableOpacity>
+          )}
+          {downloaded && (
             <TouchableOpacity onPress={shareImage} style={styles.button}>
               <Feather name="share-2" size={24} color="white" />
             </TouchableOpacity>
-          </View>
-          {restaurada ? (
-            <View>
-              <Text style={styles.mysubTitle}>
-                Para volver a Restaurar elige o toma una foto :D
-              </Text>
-            </View>
-          ) : (
-            imageUri && (
-              <TouchableOpacity onPress={restoreImage} style={styles.Sbutton}>
-                <Text style={styles.myText}>Restaurar</Text>
-              </TouchableOpacity>
-            )
           )}
         </View>
-      )}
-      {cameraActive && (
-        <Camera
-          style={styles.camera}
-          type={Camera.Constants.Type.back}
-          ref={(ref) => setCameraRef(ref)}
-        >
-          <View style={styles.buttonCamContainer}>
-            <TouchableOpacity
-              style={styles.buttonCam}
-              onPress={() => takePicture()}
-            ></TouchableOpacity>
-            <TouchableOpacity
-              style={styles.buttonCancelCam}
-              onPress={() => setCameraActive(false)}
-            >
-              <Feather name="x-circle" size={24} color="white" />
-            </TouchableOpacity>
+        {restaurada ? (
+          <View>
+            <Text style={styles.mysubTitle}>
+              Para volver a Restaurar elige o toma una foto :D
+            </Text>
           </View>
-        </Camera>
-      )}
-
+        ) : (
+          imageUri && (
+            <TouchableOpacity onPress={restoreImage} style={styles.Sbutton}>
+              <Text style={styles.myText}>Restaurar</Text>
+            </TouchableOpacity>
+          )
+        )}
+      </View>
       <StatusBar style="inverted" />
     </View>
   );
@@ -326,38 +306,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  camera: {
-    flex: 1,
-    width: "100%",
-  },
-  buttonCamContainer: {
-    position: "absolute",
-    bottom: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-    paddingVertical: 20,
-  },
-  buttonCam: {
-    width: 70,
-    height: 70,
-    backgroundColor: "#fff",
-    borderRadius: 50,
-    borderWidth: 5,
-    borderColor: "#000",
-  },
-  buttonCancelCam: {
-    position: "absolute",
-    justifyContent: "center",
-    alignItems: "center",
-    right: 20,
-    width: 35,
-    height: 35,
-    backgroundColor: "black",
-    borderRadius: 50,
-    borderWidth: 5,
-    borderColor: "#000",
   },
 });
