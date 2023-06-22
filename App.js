@@ -45,7 +45,6 @@ export default function App() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
-      aspect: [1, 1],
     });
     if (!result.canceled) {
       //console.log(result.assets);
@@ -89,25 +88,30 @@ export default function App() {
   //Descargar imagen en PhoRest
   async function saveImageToAlbum(uri) {
     const asset = await MediaLibrary.createAssetAsync(uri);
+    setImageUri(uri);
+    console.log("asset uri: " + asset.uri);
     await MediaLibrary.createAlbumAsync("PhoRest", asset, false);
     ToastAndroid.show(
       "La imagen se ha descargado con éxito.",
       ToastAndroid.SHORT
     );
-    setImageUri(uri);
+    console.log("rf" + imageUri);
     setDownloaded(true);
   }
   //Descargar la imagen de URL
   const downloadImage = async () => {
+    console.log("1st uri: " + imageUri);
     FileSystem.downloadAsync(
       imageUri,
       FileSystem.documentDirectory + "image.png"
     )
       .then(({ uri }) => {
+        console.log("dwd uri: " + uri);
         saveImageToAlbum(uri);
       })
       .catch((error) => {
         console.log("Error downloading image:", error);
+        alert(error + ". Revisar galería...");
       });
   };
   //Compartir la imagen
@@ -166,12 +170,12 @@ export default function App() {
               onPress: () => Linking.openURL(responseJson.finalImage),
             },
           ]
-        );
-        //alert("Tu imagen está en: " + responseJson.finalImage);*/
+        );*/
+        //alert("Tu imagen está en: " + responseJson.finalImage);
         ToastAndroid.show("Listo!!!", ToastAndroid.SHORT);
       })
       .catch((error) => {
-        console.log("NOTTTT: " + error);
+        console.log("No se pudo enviar: " + error);
         alert("No se pudo enviar: " + error);
       });
   };
@@ -181,7 +185,7 @@ export default function App() {
       <View>
         <Text style={styles.myTitle}>PhotoRestorer</Text>
         <Text style={styles.mysubTitle}>
-          Restauración de fotos antiguas o dañadas
+          Restauración de retratos antiguos o dañados con Deep Learning
         </Text>
         <Text style={styles.mysubTitle}>
           Selecciona tu imagen de la galería o con tu cámara
